@@ -5,6 +5,7 @@ They handle common stream control patterns such as duplicating, merging, and buf
 
 Each processor is described in RDF (SHACL + RDF Connect vocab) and backed by a JavaScript implementation.
 
+---
 
 ### 🔀 FanOutProcessor
 **IRI:** `rdfc:FanOut`  
@@ -19,6 +20,7 @@ By default, messages are forwarded to all writers **in parallel**, but sequentia
 
 **Use case:** Broadcasting one stream into multiple downstream consumers.
 
+---
 
 ### 🔗 ConvergeProcessor
 **IRI:** `rdfc:Converge`  
@@ -37,6 +39,7 @@ Useful when several upstream sources should flow into the same sink.
 
 **Use case:** Merging multiple producers into one consumer.
 
+---
 
 ### 📦 BufferProcessor
 **IRI:** `rdfc:Buffer`  
