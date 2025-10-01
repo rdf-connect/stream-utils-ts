@@ -1,0 +1,81 @@
+@prefix rdfc: <https://w3id.org/rdf-connect#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+
+rdfc:FanOut rdfc:jsImplementationOf rdfc:Processor;
+  rdfs:label "Fan Out Streams Processor";
+  rdfs:comment "Stream utility processor to duplicate message to multiple readers (in parallel by default).";
+  rdfc:file <./lib/index.js>;
+  rdfc:class "FanOutProcessor";
+  rdfc:entrypoint <./>.
+
+[ ] a sh:NodeShape;
+  sh:targetClass rdfc:FanOut;
+  sh:property [
+    sh:class rdfc:Reader;
+    sh:path rdfc:reader;
+    sh:name "reader";
+    sh:minCount 1;
+    sh:maxCount 1;
+  ], [
+    sh:class rdfc:Writer;
+    sh:path rdfc:writer;
+    sh:name "writers";
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path rdfc:inParallel;
+    sh:name "parallel";
+    sh:maxCount 1;
+  ].
+
+rdfc:Converge rdfc:jsImplementationOf rdfc:Processor;
+  rdfs:label "Stream Converging Processor";
+  rdfs:comment "Stream utility processor to converge messages from multiple writers to a single reader.";
+  rdfc:file <./lib/index.js>;
+  rdfc:class "ConvergeProcessor";
+  rdfc:entrypoint <./>.
+
+[ ] a sh:NodeShape;
+  sh:targetClass rdfc:Converge;
+  sh:property [
+    sh:class rdfc:Reader;
+    sh:path rdfc:reader;
+    sh:name "readers";
+  ], [
+    sh:class rdfc:Writer;
+    sh:path rdfc:writer;
+    sh:name "writer";
+    sh:minCount 1;
+    sh:maxCount 1;
+  ].
+
+rdfc:Buffer rdfc:jsImplementationOf rdfc:Processor;
+  rdfs:label "Stream Buffering Processor";
+  rdfs:comment "Stream utility processor to buffer up to n messages, allowing writers to produce messages faster.";
+  rdfc:file <./lib/index.js>;
+  rdfc:class "BufferProcessor";
+  rdfc:entrypoint <./>.
+
+[ ] a sh:NodeShape;
+  sh:targetClass rdfc:Buffer;
+  sh:property [
+    sh:class rdfc:Reader;
+    sh:path rdfc:reader;
+    sh:name "reader";
+    sh:minCount 1;
+    sh:maxCount 1;
+  ], [
+    sh:class rdfc:Writer;
+    sh:path rdfc:writer;
+    sh:name "writer";
+    sh:minCount 1;
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:integer;
+    sh:path rdfc:maxOngoing;
+    sh:name "maxOngoing";
+    sh:minCount 1;
+    sh:maxCount 1;
+  ].
+

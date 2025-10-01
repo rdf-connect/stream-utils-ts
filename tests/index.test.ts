@@ -1,17 +1,18 @@
 import { describe, expect, test } from "vitest";
-import { TemplateProcessor } from "../src";
 import { createWriter, logger } from "@rdfc/js-runner/lib/testUtils";
 import { FullProc } from "@rdfc/js-runner";
+import { BufferProcessor } from "../src";
 
 describe("Functional tests for the Template processor", () => {
     test("It writes everything from the reader", async () => {
         const [inputWriter, inputReader] = createWriter();
         const [outputWriter, outputReader] = createWriter();
 
-        const proc = <FullProc<TemplateProcessor>>new TemplateProcessor(
+        const proc = <FullProc<BufferProcessor>>new BufferProcessor(
             {
                 reader: inputReader,
                 writer: outputWriter,
+                maxOngoing: 5
             },
             logger,
         );

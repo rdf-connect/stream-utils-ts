@@ -1,51 +1,134 @@
-import { Processor, type Reader, type Writer } from "@rdfc/js-runner";
+import { Any, Processor, type Reader, type Writer } from "@rdfc/js-runner";
 
-type TemplateArgs = {
+type FanOutArgs = {
     reader: Reader;
-    writer: Writer;
+    writers: Writer[];
+    parallel: boolean;
 };
 
-/**
- * The TemplateProcessor class is a very simple processor which simply logs the
- * incoming stream to the RDF-Connect logging system and pipes it directly into
- * the outgoing stream.
- *
- * @param incoming The data stream which must be logged.
- * @param outgoing The data stream into which the incoming stream is written.
- */
-export class TemplateProcessor extends Processor<TemplateArgs> {
-    /**
-     * This is the first function that is called (and awaited) when creating a processor.
-     * This is the perfect location to start things like database connections.
-     */
-    async init(this: TemplateArgs & this): Promise<void> {
-        // Initialization code here e.g., setting up connections or loading resources
+export class FanOutProcessor extends Processor<FanOutArgs> {
+    async init(this: FanOutArgs & this): Promise<void> {
+        this.parallel = this.parallel ?? true;
     }
-
-    /**
-     * Function to start reading channels.
-     * This function is called for each processor before `produce` is called.
-     * Listen to the incoming stream, log them, and push them to the outgoing stream.
-     */
-    async transform(this: TemplateArgs & this): Promise<void> {
-        // Consume the incoming stream, log each message, and push it to the outgoing stream.
-        for await (const msg of this.reader.strings()) {
-            this.logger.info(msg);
-            await this.writer.string(msg);
+    async transform(this: FanOutArgs & this): Promise<void> {
+        for await (const any of this.reader.anys()) {
+            if (this.parallel) {
+                await this.sendParallel(any);
+            } else {
+                await this.sendInSequence(any);
+            }
         }
 
-        // Close the outgoing stream when done
-        await this.writer.close();
-        this.logger.debug(
-            "TemplateProcessor finished processing. Writer closed.",
-        );
+        await Promise.all(this.writers.map(writer => writer.close()));
     }
 
-    /**
-     * Function to start the production of data, starting the pipeline.
-     * This function is called after all processors are completely set up.
-     */
-    async produce(this: TemplateArgs & this): Promise<void> {
-        // Function to start the production of data, starting the pipeline.
+    async sendParallel(this: FanOutArgs & this, chunk: Any) {
+        await Promise.all(
+            this.writers.map(writer => writer.any(chunk))
+        )
+    }
+
+    async sendInSequence(this: FanOutArgs & this, chunk: Any) {
+        for (const writer of this.writers) {
+            await writer.any(chunk);
+        }
+    }
+
+    async produce(this: FanOutArgs & this): Promise<void> {
+    }
+
+}
+
+
+type ConvergeArgs = {
+    readers: Reader[];
+    writer: Writer;
+}
+
+export class ConvergeProcessor extends Processor<ConvergeArgs> {
+    private readonly queue: (() => Promise<void>)[] = []
+    private busy = false;
+    async init(this: ConvergeArgs & this): Promise<void> {
+    }
+    async transform(this: ConvergeArgs & this): Promise<void> {
+        await Promise.all(
+            this.readers.map(reader => this.setupReader(reader))
+        )
+        await this.writer.close();
+    }
+
+    private async setupReader(this: ConvergeArgs & this, reader: Reader) {
+        for await (const chunk of reader.anys()) {
+            if (this.busy) {
+                // We are busy, lets add it to the queue
+                await new Promise<void>(res => {
+                    this.queue.push(async () => {
+                        await this.processChunk(chunk);
+                        res();
+                    });
+                });
+            } else {
+                await this.processChunk(chunk);
+            }
+        }
+    }
+
+    private async processChunk(this: ConvergeArgs & this, chunk: Any) {
+        this.busy = true;
+        await this.writer.any(chunk)
+        this.busy = false;
+        // Process next item in queue if available
+        const next = this.queue.shift();
+        if (next) {
+            // Fire and forget; queue promise resolves itself
+            next();
+        }
+    }
+
+    async produce(this: ConvergeArgs & this): Promise<void> {
+    }
+}
+
+type BufferArgs = {
+    reader: Reader,
+    writer: Writer,
+    maxOngoing: number,
+}
+
+
+export class BufferProcessor extends Processor<BufferArgs> {
+    private ongoing = new Set<Promise<void>>();
+
+    async init(this: BufferArgs & this): Promise<void> {
+        // Nothing to initialize
+    }
+
+    async transform(this: BufferArgs & this): Promise<void> {
+        for await (const chunk of this.reader.anys()) {
+            // If too many ongoing writes, wait for one to finish
+            if (this.maxOngoing !== 0 && this.ongoing.size >= this.maxOngoing) {
+                await Promise.race(this.ongoing);
+            }
+
+            const task = this.writer.any(chunk)
+                .catch(err => {
+                    // Handle errors so they don't cause unhandled rejections
+                    console.error("Writer error:", err);
+                    throw err;
+                })
+                .finally(() => {
+                    this.ongoing.delete(task);
+                });
+
+            this.ongoing.add(task);
+        }
+
+        // Wait for all pending writes to finish
+        await Promise.all(this.ongoing);
+        await this.writer.close();
+    }
+
+    async produce(this: BufferArgs & this): Promise<void> {
+        // Nothing to produce
     }
 }
