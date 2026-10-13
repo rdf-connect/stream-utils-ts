@@ -19,13 +19,11 @@ export class FanOutProcessor extends Processor<FanOutArgs> {
             }
         }
 
-        await Promise.all(this.writers.map(writer => writer.close()));
+        await Promise.all(this.writers.map((writer) => writer.close()));
     }
 
     async sendParallel(this: FanOutArgs & this, chunk: Any) {
-        await Promise.all(
-            this.writers.map(writer => writer.any(chunk))
-        )
+        await Promise.all(this.writers.map((writer) => writer.any(chunk)));
     }
 
     async sendInSequence(this: FanOutArgs & this, chunk: Any) {
@@ -34,26 +32,22 @@ export class FanOutProcessor extends Processor<FanOutArgs> {
         }
     }
 
-    async produce(this: FanOutArgs & this): Promise<void> {
-    }
-
+    async produce(this: FanOutArgs & this): Promise<void> {}
 }
-
 
 type ConvergeArgs = {
     readers: Reader[];
     writer: Writer;
-}
+};
 
 export class ConvergeProcessor extends Processor<ConvergeArgs> {
-    private readonly queue: (() => Promise<void>)[] = []
+    private readonly queue: (() => Promise<void>)[] = [];
     private busy = false;
-    async init(this: ConvergeArgs & this): Promise<void> {
-    }
+    async init(this: ConvergeArgs & this): Promise<void> {}
     async transform(this: ConvergeArgs & this): Promise<void> {
         await Promise.all(
-            this.readers.map(reader => this.setupReader(reader))
-        )
+            this.readers.map((reader) => this.setupReader(reader)),
+        );
         await this.writer.close();
     }
 
@@ -61,7 +55,7 @@ export class ConvergeProcessor extends Processor<ConvergeArgs> {
         for await (const chunk of reader.anys()) {
             if (this.busy) {
                 // We are busy, lets add it to the queue
-                await new Promise<void>(res => {
+                await new Promise<void>((res) => {
                     this.queue.push(async () => {
                         await this.processChunk(chunk);
                         res();
@@ -75,7 +69,7 @@ export class ConvergeProcessor extends Processor<ConvergeArgs> {
 
     private async processChunk(this: ConvergeArgs & this, chunk: Any) {
         this.busy = true;
-        await this.writer.any(chunk)
+        await this.writer.any(chunk);
         this.busy = false;
         // Process next item in queue if available
         const next = this.queue.shift();
@@ -85,16 +79,14 @@ export class ConvergeProcessor extends Processor<ConvergeArgs> {
         }
     }
 
-    async produce(this: ConvergeArgs & this): Promise<void> {
-    }
+    async produce(this: ConvergeArgs & this): Promise<void> {}
 }
 
 type BufferArgs = {
-    reader: Reader,
-    writer: Writer,
-    maxOngoing: number,
-}
-
+    reader: Reader;
+    writer: Writer;
+    maxOngoing: number;
+};
 
 export class BufferProcessor extends Processor<BufferArgs> {
     private ongoing = new Set<Promise<void>>();
@@ -110,8 +102,9 @@ export class BufferProcessor extends Processor<BufferArgs> {
                 await Promise.race(this.ongoing);
             }
 
-            const task = this.writer.any(chunk)
-                .catch(err => {
+            const task = this.writer
+                .any(chunk)
+                .catch((err) => {
                     // Handle errors so they don't cause unhandled rejections
                     console.error("Writer error:", err);
                     throw err;
