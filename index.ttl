@@ -26,6 +26,7 @@ rdfc:FanOut rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:boolean;
     sh:path rdfc:inParallel;
     sh:name "parallel";
+    sh:defaultValue true;
     sh:maxCount 1;
   ].
 
