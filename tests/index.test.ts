@@ -1,18 +1,26 @@
 import { describe, expect, test } from "vitest";
-import { createWriter, logger } from "@rdfc/js-runner/lib/testUtils";
+import { channel, createRunner } from "@rdfc/js-runner/lib/testUtils";
 import { FullProc } from "@rdfc/js-runner";
+import { createLogger, transports } from "winston";
 import { BufferProcessor } from "../src";
+
+const logger = createLogger({
+    transports: new transports.Console({
+        level: process.env["DEBUG"] || "info",
+    }),
+});
 
 describe("Functional tests for the Template processor", () => {
     test("It writes everything from the reader", async () => {
-        const [inputWriter, inputReader] = createWriter();
-        const [outputWriter, outputReader] = createWriter();
+        const runner = createRunner();
+        const [inputWriter, inputReader] = channel(runner, "input");
+        const [outputWriter, outputReader] = channel(runner, "output");
 
         const proc = <FullProc<BufferProcessor>>new BufferProcessor(
             {
                 reader: inputReader,
                 writer: outputWriter,
-                maxOngoing: 5
+                maxOngoing: 5,
             },
             logger,
         );
@@ -36,9 +44,6 @@ describe("Functional tests for the Template processor", () => {
         await inputWriter.string("Goodbye.");
         await new Promise((r) => process.nextTick(r));
         await inputWriter.close();
-
-        // Close reader so iteration finishes
-        outputReader.close();
 
         // Collect output
         const collected = await readPromise;

@@ -8,7 +8,7 @@ type FanOutArgs = {
 
 export class FanOutProcessor extends Processor<FanOutArgs> {
     async init(this: FanOutArgs & this): Promise<void> {
-        this.parallel = this.parallel ?? true;
+        // Nothing to initialize
     }
     async transform(this: FanOutArgs & this): Promise<void> {
         for await (const any of this.reader.anys()) {
